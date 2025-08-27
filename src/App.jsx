@@ -142,16 +142,18 @@ function FileUploader({ type, label, isUploaded, onUploadSuccess }) {
 
 // 부모로부터 fileStatuses를 props로 받습니다.
 function AdminUpload({ fileStatuses, onUploadSuccess }) {
+  // --- ▼▼▼ 접힘/펼침 상태를 관리할 state 추가 ▼▼▼ ---
   const [isOpen, setIsOpen] = useState(false);
 
   return (
+    // --- is-open 클래스를 조건부로 추가 ---
     <div className={`admin-upload-section ${isOpen ? 'is-open' : ''}`}>
+      {/* --- onClick 이벤트를 추가하여 상태를 변경 --- */}
       <div className="admin-header" onClick={() => setIsOpen(!isOpen)}>
         <h2 className="sub-title">관리자 파일 업로드</h2>
         <span className="toggle-arrow">{isOpen ? '▲' : '▼'}</span>
       </div>
       <div className="uploaders-grid">
-        {/* --- ▼▼▼ onUploadSuccess를 자식에게 전달합니다 ▼▼▼ --- */}
         <FileUploader type="eung" label="전기" isUploaded={fileStatuses.eung} onUploadSuccess={onUploadSuccess} />
         <FileUploader type="tongsin" label="통신" isUploaded={fileStatuses.tongsin} onUploadSuccess={onUploadSuccess} />
         <FileUploader type="sobang" label="소방" isUploaded={fileStatuses.sobang} onUploadSuccess={onUploadSuccess} />
@@ -178,6 +180,11 @@ function App() {
     tongsin: false,
     sobang: false,
   });
+  const resultsRef = useRef(null); // 스크롤할 위치를 저장할 '책갈피'
+  const [animationKey, setAnimationKey] = useState(0); // 애니메이션 재실행을 위한 키
+  const topSectionRef = useRef(null); // 화면 상단을 가리킬 책갈피
+  const searchResultsRef = useRef(null); // 검색 결과를 가리킬 책갈피
+
 
    const refreshFileStatuses  = async () => {
       try {
@@ -216,6 +223,7 @@ function App() {
 const handleSearch = async () => {
     setSearchPerformed(true);
     setIsLoading(true);
+
     setSelectedCompany(null);
     setSearchResults([]);
     setError('');
@@ -240,6 +248,11 @@ const handleSearch = async () => {
       
       setSearchResults(response.data);
 
+      setTimeout(() => {
+        searchResultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+
+
     } catch (err) {
       setError('업체 검색 중 오류가 발생했습니다.');
       console.error(err);
@@ -249,7 +262,15 @@ const handleSearch = async () => {
   };
   
 
-    const handleCompanySelect = (company) => { setSelectedCompany(company); };
+    const handleCompanySelect = (company) => {
+    // --- ▼▼▼ 이 코드를 함수 맨 위에 추가합니다 ▼▼▼ ---
+    // 업체를 선택하면 화면 상단으로 부드럽게 스크롤
+    topSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+
+    setSelectedCompany(company);
+    setAnimationKey(prevKey => prevKey + 1);
+  };
+
     const handleKeyDown = (event) => {
     // 만약 눌린 키가 'Enter' 라면, 검색 함수를 실행합니다.
     if (event.key === 'Enter') {
@@ -280,158 +301,109 @@ const handleSearch = async () => {
 return (
     <div className="app-container">
       <h1 className="main-title">업체 검색 및 적격 심사</h1>
-
-      {/* 관리자 업로드 섹션 (접이식) */}
+      
       <AdminUpload 
         fileStatuses={fileStatuses} 
         onUploadSuccess={refreshFileStatuses} 
       />
 
-      {/* --- ▼▼▼ '검색 대상 선택'과 '필터'를 하나의 카드로 통합합니다 ▼▼▼ --- */}
-      <div className="filter-section">
-        {/* 검색 대상 선택 */}
-        <div className="file-type-selector">
-          <h3>검색 대상</h3>
-          <div className="radio-group">
-            <label>
-              <input type="radio" value="eung" checked={fileType === 'eung'} onChange={(e) => setFileType(e.target.value)} />
-              전기
-            </label>
-            <label>
-              <input type="radio" value="tongsin" checked={fileType === 'tongsin'} onChange={(e) => setFileType(e.target.value)} />
-              통신
-            </label>
-            <label>
-              <input type="radio" value="sobang" checked={fileType === 'sobang'} onChange={(e) => setFileType(e.target.value)} />
-              소방
-            </label>
+      {/* --- ▼▼▼ [핵심] 좌우 2단 레이아웃을 위한 새로운 구조 ▼▼▼ --- */}
+      <div className="main-content-layout" ref={resultsRef}>
+        
+        {/* --- 왼쪽 패널: 필터와 검색 결과를 모두 포함 --- */}
+        <div className="left-panel">
+          {/* 검색 필터 섹션 */}
+          <div className="search-filter-section" ref={topSectionRef}>
+            <div className="file-type-selector">
+              <h3>검색 대상</h3>
+              <div className="radio-group">
+                <label><input type="radio" value="eung" checked={fileType === 'eung'} onChange={(e) => setFileType(e.target.value)} /> 전기</label>
+                <label><input type="radio" value="tongsin" checked={fileType === 'tongsin'} onChange={(e) => setFileType(e.target.value)} /> 통신</label>
+                <label><input type="radio" value="sobang" checked={fileType === 'sobang'} onChange={(e) => setFileType(e.target.value)} /> 소방</label>
+              </div>
+            </div>
+            <div className="filter-grid">
+              <div className="filter-item"><label>업체명</label><input type="text" name="name" value={filters.name} onChange={handleFilterChange} onKeyDown={handleKeyDown} className="filter-input" /></div>
+              <div className="filter-item"><label>지역</label><select name="region" value={filters.region} onChange={handleFilterChange} className="filter-input"><option value="전체">전체</option>{regions.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
+              <div className="filter-item"><label>담당자</label><input type="text" name="manager" value={filters.manager} onChange={handleFilterChange} className="filter-input" /></div>
+              <div className="filter-item range"><label>시평액 범위</label><div className="range-inputs"><input type="text" name="min_sipyung" value={filters.min_sipyung} onChange={handleFilterChange} placeholder="최소" className="filter-input" /><span>~</span><input type="text" name="max_sipyung" value={filters.max_sipyung} onChange={handleFilterChange} placeholder="최대" className="filter-input" /></div></div>
+              <div className="filter-item range"><label>3년 실적 범위</label><div className="range-inputs"><input type="text" name="min_3y" value={filters.min_3y} onChange={handleFilterChange} placeholder="최소" className="filter-input" /><span>~</span><input type="text" name="max_3y" value={filters.max_3y} onChange={handleFilterChange} placeholder="최대" className="filter-input" /></div></div>
+              <div className="filter-item range"><label>5년 실적 범위</label><div className="range-inputs"><input type="text" name="min_5y" value={filters.min_5y} onChange={handleFilterChange} placeholder="최소" className="filter-input" /><span>~</span><input type="text" name="max_5y" value={filters.max_5y} onChange={handleFilterChange} placeholder="최대" className="filter-input" /></div></div>
+              <div className="filter-item"><label>&nbsp;</label><button onClick={handleSearch} className="search-button" disabled={isLoading}>{isLoading ? '검색 중...' : '검색'}</button></div>
+            </div>
           </div>
+          
+          {/* 검색 결과 (검색 후에만 표시) */}
+          {searchPerformed && (
+            <div className="search-results-list" ref={searchResultsRef}>
+              <h2 className="sub-title">검색 결과</h2>
+              {isLoading && <p>로딩 중...</p>}
+              {!isLoading && searchResults.length === 0 && <p>검색 결과가 없습니다.</p>}
+              <ul>
+                {searchResults.map((company, index) => {
+                  const isActive = selectedCompany && selectedCompany.사업자번호 === company.사업자번호;
+                  const summaryStatus = company['요약상태'] || '미지정';
+                  return (
+                    <li key={index} onClick={() => handleCompanySelect(company)} className={`company-list-item ${isActive ? 'active' : ''}`}>
+                      <span className="company-name">{company['업체명']}</span>
+                      <span className={`summary-status-badge ${getStatusClass(summaryStatus)}`}>{summaryStatus}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
         </div>
 
-        {/* 필터 그리드 */}
-        <div className="filter-grid">
-          <div className="filter-item">
-            <label>업체명</label>
-            <input type="text" name="name" value={filters.name} onChange={handleFilterChange} onKeyDown={handleKeyDown} className="filter-input" />
-          </div>
-          <div className="filter-item">
-            <label>지역</label>
-            <select name="region" value={filters.region} onChange={handleFilterChange} className="filter-input">
-              <option value="전체">전체</option>
-              {regions.map(r => <option key={r} value={r}>{r}</option>)}
-            </select>
-          </div>
-          <div className="filter-item">
-            <label>담당자</label>
-            <input type="text" name="manager" value={filters.manager} onChange={handleFilterChange} className="filter-input" />
-          </div>
-          <div className="filter-item range">
-            <label>시평액 범위</label>
-            <div className="range-inputs">
-              <input type="text" name="min_sipyung" value={filters.min_sipyung} onChange={handleFilterChange} placeholder="최소" className="filter-input" />
-              <span>~</span>
-              <input type="text" name="max_sipyung" value={filters.max_sipyung} onChange={handleFilterChange} placeholder="최대" className="filter-input" />
+        {/* --- 오른쪽 패널: 업체 상세 정보 --- */}
+        <div className="right-panel">
+          {searchPerformed && (
+            <div className="company-details fade-in" key={animationKey}>
+              <div className="details-header">
+                <h2 className="sub-title">업체 상세 정보</h2>
+                {selectedCompany && (<button onClick={handleCopyAll} className="copy-all-button">전체 복사</button>)}
+              </div>
+              {selectedCompany ? (
+                <div className="table-container">
+                  <table className="details-table">
+                    <tbody>
+                      {DISPLAY_ORDER.map((key) => {
+                        const value = selectedCompany[key] ?? 'N/A';
+                        const status = selectedCompany.데이터상태?.[key] ? selectedCompany.데이터상태[key] : '미지정';
+                        let displayValue;
+                        const percentageKeys = ['부채비율', '유동비율'];
+                        const formattedKeys = ['시평', '3년 실적', '5년 실적'];
+                        if (percentageKeys.includes(key)) {
+                          displayValue = formatPercentage(value);
+                        } else if (formattedKeys.includes(key)) {
+                          displayValue = formatNumber(value);
+                        } else {
+                          displayValue = String(value);
+                        }
+                        return (
+                          <tr key={key}>
+                            <th>{key}</th>
+                            <td>
+                              <div className="value-cell">
+                                <div className="value-with-status">
+                                  <span className={`status-dot ${getStatusClass(status)}`} title={status}></span>
+                                  <span>{displayValue}</span>
+                                </div>
+                                <button onClick={() => handleCopySingle(key, displayValue)} className="copy-single-button" title={`${key} 복사`}>복사</button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (<p>왼쪽 목록에서 업체를 선택하세요.</p>)}
             </div>
-          </div>
-          <div className="filter-item range">
-            <label>3년 실적 범위</label>
-            <div className="range-inputs">
-              <input type="text" name="min_3y" value={filters.min_3y} onChange={handleFilterChange} placeholder="최소" className="filter-input" />
-              <span>~</span>
-              <input type="text" name="max_3y" value={filters.max_3y} onChange={handleFilterChange} placeholder="최대" className="filter-input" />
-            </div>
-          </div>
-          <div className="filter-item range">
-            <label>5년 실적 범위</label>
-            <div className="range-inputs">
-              <input type="text" name="min_5y" value={filters.min_5y} onChange={handleFilterChange} placeholder="최소" className="filter-input" />
-              <span>~</span>
-              <input type="text" name="max_5y" value={filters.max_5y} onChange={handleFilterChange} placeholder="최대" className="filter-input" />
-            </div>
-          </div>
-          <div className="filter-item">
-            {/* 검색 버튼을 필터 그리드 마지막에 배치하여 정렬을 맞춥니다. */}
-            <label>&nbsp;</label> {/* 높이를 맞추기 위한 빈 레이블 */}
-            <button onClick={handleSearch} className="search-button" disabled={isLoading}>
-              {isLoading ? '검색 중...' : '검색'}
-            </button>
-          </div>
+          )}
         </div>
       </div>
-      
-      {error && <p className="error-message">{error}</p>}
-
-      {searchPerformed && (
-        <div className="results-layout">
-          <div className="search-results-list">
-            <h2 className="sub-title">검색 결과</h2>
-            {isLoading && <p>로딩 중...</p>}
-            {!isLoading && searchResults.length === 0 && <p>검색 결과가 없습니다.</p>}
-            <ul>
-              {searchResults.map((company, index) => {
-                const isActive = selectedCompany && selectedCompany.사업자번호 === company.사업자번호;
-                const summaryStatus = company['요약상태'] || '미지정';
-                return (
-                  <li key={index} onClick={() => handleCompanySelect(company)} className={`company-list-item ${isActive ? 'active' : ''}`}>
-                    <span className="company-name">{company['업체명']}</span>
-                    <span className={`summary-status-badge ${getStatusClass(summaryStatus)}`}>
-                      {summaryStatus}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-          <div className="company-details">
-            <div className="details-header">
-              <h2 className="sub-title">업체 상세 정보</h2>
-              {selectedCompany && (
-                <button onClick={handleCopyAll} className="copy-all-button">
-                  전체 복사
-                </button>
-              )}
-            </div>
-            {selectedCompany ? (
-              <div className="table-container">
-                <table className="details-table">
-                  <tbody>
-                    {DISPLAY_ORDER.map((key) => {
-                      const value = selectedCompany[key] ?? 'N/A';
-                      const status = selectedCompany.데이터상태?.[key] ? selectedCompany.데이터상태[key] : '미지정';
-                      let displayValue;
-                      const percentageKeys = ['부채비율', '유동비율'];
-                      const formattedKeys = ['시평', '3년 실적', '5년 실적'];
-                      if (percentageKeys.includes(key)) {
-                        displayValue = formatPercentage(value);
-                      } else if (formattedKeys.includes(key)) {
-                        displayValue = formatNumber(value);
-                      } else {
-                        displayValue = String(value);
-                      }
-                      return (
-                        <tr key={key}>
-                          <th>{key}</th>
-                          <td>
-                            <div className="value-cell">
-                              <div className="value-with-status">
-                                <span className={`status-dot ${getStatusClass(status)}`} title={status}></span>
-                                <span>{displayValue}</span>
-                              </div>
-                              <button onClick={() => handleCopySingle(key, displayValue)} className="copy-single-button" title={`${key} 복사`}>
-                                복사
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            ) : (<p>왼쪽 목록에서 업체를 선택하세요.</p>)}
-          </div>
-        </div>
-      )}
+      {/* --- ▲▲▲ 여기까지 새로운 구조 ▲▲▲ --- */}
 
       <CopyDialog 
         isOpen={dialog.isOpen} 
