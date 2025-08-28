@@ -193,3 +193,25 @@ body {
 .error-message { color: #ef4444; background-color: #fee2e2; padding: 1rem; border-radius: 0.5rem; }
 @keyframes fadeIn { from { opacity: 0.5; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 .fade-in { animation: fadeIn 0.4s ease-out forwards; }
+
+
+.company-info-wrapper {
+  display: flex;
+  align-items: center;
+  min-width: 0; /* 텍스트가 길어질 때 줄임표(...) 처리를 위해 필요 */
+}
+
+/* 검색 결과의 작은 뱃지 */
+.file-type-badge-small {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: white;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  margin-right: 0.5rem;
+  flex-shrink: 0; /* 뱃지가 찌그러지지 않도록 함 */
+}
+/* 뱃지 색상 (한글 클래스 이름 사용) */
+.file-type-badge-small.file-type-전기 { background-color: #f59e0b; }
+.file-type-badge-small.file-type-통신 { background-color: #3b82f6; }
+.file-type-badge-small.file-type-소방 { background-color: #ef4444; }
